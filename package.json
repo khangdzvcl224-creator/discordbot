@@ -1,0 +1,7 @@
+{
+ "name": "discordbot",
+ "type": "module",
+ "dependencies": {
+  "discord.js": "^14.14.1"
+ }
+}
