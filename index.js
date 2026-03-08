@@ -1,190 +1,185 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const {
+Client,
+GatewayIntentBits,
+EmbedBuilder,
+ActionRowBuilder,
+StringSelectMenuBuilder
+} = require("discord.js");
 
 const client = new Client({
- intents: [
+ intents:[
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMessages,
   GatewayIntentBits.MessageContent
  ]
 });
 
-let users = {};
+let money = {};
+let history = [];
+let txBets = {};
 
-function getUser(id){
- if(!users[id]){
-  users[id] = {
-   money: 1000,
-   bank: 0
-  };
- }
- return users[id];
+const bcItems = ["bau","cua","tom","ca","ga","nai"];
+
+function getMoney(id){
+ if(!money[id]) money[id] = 1000;
+ return money[id];
 }
 
-client.once("ready", ()=>{
+client.once("ready",()=>{
  console.log("Casino bot online");
 });
 
-client.on("messageCreate", (msg)=>{
+client.on("messageCreate", async(msg)=>{
+
  if(msg.author.bot) return;
 
- const args = msg.content.split(" ");
- const cmd = args[0];
  const id = msg.author.id;
- const user = getUser(id);
 
- // help
- if(cmd === ".help"){
-  msg.reply(`
-🎰 Lệnh bot
+ // ===== BAL =====
 
-💰 Kinh tế
-.balance
-.work
-.daily
-.deposit
-.withdraw
-.pay
-
-🎲 Game
-.taixiu
-.baucua
-.slot
-.coinflip
-`);
+ if(msg.content === ".bal"){
+  msg.reply(`💰 Bạn có **${getMoney(id)} Mcoin**`);
  }
 
- // balance
- if(cmd === ".balance"){
-  msg.reply(`💰 Ví: ${user.money} | 🏦 Bank: ${user.bank}`);
+ // ===== WORK =====
+
+ if(msg.content === ".work"){
+  const earn = Math.floor(Math.random()*200)+100;
+  money[id] = getMoney(id) + earn;
+  msg.reply(`Bạn kiếm được **${earn} Mcoin**`);
  }
 
- // work
- if(cmd === ".work"){
-  const earn = Math.floor(Math.random()*200)+50;
-  user.money += earn;
-  msg.reply(`Bạn kiếm được ${earn}`);
+ // ===== SOI CAU =====
+
+ if(msg.content === ".soicau"){
+
+  if(history.length === 0){
+   msg.reply("Chưa có dữ liệu soi cầu");
+   return;
+  }
+
+  msg.reply(`📈 Cầu gần đây:\n${history.join(" - ")}`);
  }
 
- // daily
- if(cmd === ".daily"){
-  user.money += 500000;
-  msg.reply("Bạn nhận 500000 tiền");
- }
+ // ===== TAI XIU =====
 
- // deposit
- if(cmd === ".deposit"){
-  const amount = parseInt(args[1]);
-  if(user.money < amount) return msg.reply("Không đủ tiền");
+ if(msg.content.startsWith(".taixiu")){
 
-  user.money -= amount;
-  user.bank += amount;
+  const args = msg.content.split(" ");
 
-  msg.reply(`Đã gửi ${amount} vào bank`);
- }
+  if(args.length < 3){
+   msg.reply("Ví dụ: .taixiu tai 100");
+   return;
+  }
 
- // withdraw
- if(cmd === ".withdraw"){
-  const amount = parseInt(args[1]);
-
-  if(user.bank < amount) return msg.reply("Không đủ tiền bank");
-
-  user.bank -= amount;
-  user.money += amount;
-
-  msg.reply(`Rút ${amount}`);
- }
-
- // pay
- if(cmd === ".pay"){
-  const target = msg.mentions.users.first();
+  const bet = args[1];
   const amount = parseInt(args[2]);
 
-  if(!target) return;
-
-  const t = getUser(target.id);
-
-  if(user.money < amount) return msg.reply("Không đủ tiền");
-
-  user.money -= amount;
-  t.money += amount;
-
-  msg.reply(`Đã chuyển ${amount}`);
- }
-
- // coinflip
- if(cmd === ".coinflip"){
-  const bet = parseInt(args[1]);
-
-  if(user.money < bet) return;
-
-  const win = Math.random() < 0.5;
-
-  if(win){
-   user.money += bet;
-   msg.reply(`Bạn thắng ${bet}`);
-  }else{
-   user.money -= bet;
-   msg.reply(`Bạn thua ${bet}`);
+  if(getMoney(id) < amount){
+   msg.reply("Không đủ tiền");
+   return;
   }
- }
-
- // slot
- if(cmd === ".slot"){
-  const bet = parseInt(args[1]);
-
-  const icons = ["🍒","🍋","🍉","⭐","💎"];
-
-  const a = icons[Math.floor(Math.random()*5)];
-  const b = icons[Math.floor(Math.random()*5)];
-  const c = icons[Math.floor(Math.random()*5)];
-
-  if(a===b && b===c){
-   user.money += bet*3;
-   msg.reply(`${a} ${b} ${c} JACKPOT +${bet*3}`);
-  }else{
-   user.money -= bet;
-   msg.reply(`${a} ${b} ${c} Thua`);
-  }
- }
-
- // tài xỉu
- if(cmd === ".taixiu"){
-  const bet = parseInt(args[1]);
-  const choice = args[2];
 
   const dice =
    Math.floor(Math.random()*6+1)+
    Math.floor(Math.random()*6+1)+
    Math.floor(Math.random()*6+1);
 
-  const result = dice >= 11 ? "tai":"xiu";
+  const result = dice >=11 ? "tai":"xiu";
 
-  if(choice===result){
-   user.money += bet;
-   msg.reply(`🎲 ${dice} -> thắng`);
+  history.push(result);
+  if(history.length > 10) history.shift();
+
+  if(bet === result){
+   const win = amount*1.9;
+   money[id] += win;
+   msg.reply(`🎲 ${dice} → ${result}\nBạn thắng **${win} Mcoin**`);
   }else{
-   user.money -= bet;
-   msg.reply(`🎲 ${dice} -> thua`);
+   money[id] -= amount;
+   msg.reply(`🎲 ${dice} → ${result}\nBạn thua **${amount} Mcoin**`);
   }
+
  }
 
- // bầu cua
- if(cmd === ".baucua"){
-  const bet = parseInt(args[1]);
-  const items = ["bau","cua","tom","ca","ga","nai"];
-  const choice = args[2];
+ // ===== BAU CUA =====
 
-  const roll = items[Math.floor(Math.random()*6)];
+ if(msg.content.startsWith(".baucua")){
 
-  if(choice===roll){
-   user.money += bet;
-   msg.reply(`Ra ${roll} -> thắng`);
-  }else{
-   user.money -= bet;
-   msg.reply(`Ra ${roll} -> thua`);
+  const args = msg.content.split(" ");
+
+  if(args.length < 3){
+   msg.reply("Ví dụ: .baucua cua 100");
+   return;
   }
+
+  const choice = args[1];
+  const amount = parseInt(args[2]);
+
+  if(getMoney(id) < amount){
+   msg.reply("Không đủ tiền");
+   return;
+  }
+
+  const roll = [
+   bcItems[Math.floor(Math.random()*6)],
+   bcItems[Math.floor(Math.random()*6)],
+   bcItems[Math.floor(Math.random()*6)]
+  ];
+
+  const win = roll.filter(x=>x===choice).length;
+
+  if(win === 0){
+   money[id] -= amount;
+   msg.reply(`Ra ${roll.join(" | ")} → Thua`);
+  }else{
+   const prize = amount * win;
+   money[id] += prize;
+   msg.reply(`Ra ${roll.join(" | ")} → Trúng ${win}\n+${prize} Mcoin`);
+  }
+
  }
 
 });
+if(msg.content.startsWith(".code")){
 
+ const args = msg.content.split(" ");
+ const code = args[1];
+
+ if(!code){
+  msg.reply("❌ Ví dụ: `.code THANTAIDEN`");
+  return;
+ }
+
+ if(!codes[code]){
+  msg.reply("❌ Code không tồn tại");
+  return;
+ }
+
+ if(!usedCodes[code]) usedCodes[code] = [];
+
+ if(usedCodes[code].includes(msg.author.id)){
+  msg.reply("❌ Bạn đã dùng code này rồi");
+  return;
+ }
+
+ const reward = codes[code];
+
+ money[msg.author.id] = getMoney(msg.author.id) + reward;
+
+ usedCodes[code].push(msg.author.id);
+
+ const embed = new EmbedBuilder()
+ .setTitle("🎁 Nhận Code Thành Công")
+ .setDescription(`
+🏷 Code: **${code}**
+
+💰 Phần thưởng: **${reward.toLocaleString()} Mcoin**
+
+👤 Người nhận: <@${msg.author.id}>
+ `)
+ .setColor("Gold")
+ .setTimestamp();
+
+ msg.reply({embeds:[embed]});
+}
 client.login(process.env.TOKEN);
