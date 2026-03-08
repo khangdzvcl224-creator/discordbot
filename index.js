@@ -1,185 +1,102 @@
-const {
-Client,
-GatewayIntentBits,
-EmbedBuilder,
-ActionRowBuilder,
-StringSelectMenuBuilder
-} = require("discord.js");
+const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
 
 const client = new Client({
- intents:[
+ intents: [
   GatewayIntentBits.Guilds,
   GatewayIntentBits.GuildMessages,
   GatewayIntentBits.MessageContent
  ]
 });
 
-let money = {};
-let history = [];
-let txBets = {};
+const prefix = ".";
+const TOKEN = "TOKEN_BOT";
+const ROLE_ID = "ROLE_PING";
 
-const bcItems = ["bau","cua","tom","ca","ga","nai"];
+let lastSpawn = 0;
 
-function getMoney(id){
- if(!money[id]) money[id] = 1000;
- return money[id];
-}
-
-client.once("ready",()=>{
- console.log("Casino bot online");
+client.on("ready", () => {
+ console.log(`Bot online: ${client.user.tag}`);
 });
 
-client.on("messageCreate", async(msg)=>{
+client.on("messageCreate", async (message) => {
 
- if(msg.author.bot) return;
+ if (message.author.bot) return;
+ if (!message.content.startsWith(prefix)) return;
 
- const id = msg.author.id;
+ const args = message.content.slice(prefix.length).trim().split(/ +/);
+ const cmd = args.shift().toLowerCase();
 
- // ===== BAL =====
-
- if(msg.content === ".bal"){
-  msg.reply(`💰 Bạn có **${getMoney(id)} Mcoin**`);
+ // ping
+ if (cmd === "ping") {
+  message.reply("🏓 Bot vẫn hoạt động!");
  }
 
- // ===== WORK =====
+ // spawn bóng
+ if (cmd === "spawn") {
 
- if(msg.content === ".work"){
-  const earn = Math.floor(Math.random()*200)+100;
-  money[id] = getMoney(id) + earn;
-  msg.reply(`Bạn kiếm được **${earn} Mcoin**`);
+  lastSpawn = Date.now();
+
+  const embed = new EmbedBuilder()
+   .setTitle("⚽ BÓNG ĐÃ SPAWN")
+   .setDescription("Nhanh vào **Steal a Brainrot** để nhặt bóng!")
+   .setColor("Green")
+   .setTimestamp();
+
+  message.channel.send({
+   content: `<@&${ROLE_ID}>`,
+   embeds: [embed]
+  });
  }
 
- // ===== SOI CAU =====
+ // bóng hiếm
+ if (cmd === "rare") {
 
- if(msg.content === ".soicau"){
+  const embed = new EmbedBuilder()
+   .setTitle("🔥 BÓNG HIẾM XUẤT HIỆN")
+   .setDescription("Có **Brainrot hiếm** trong server!")
+   .setColor("Gold")
+   .setTimestamp();
 
-  if(history.length === 0){
-   msg.reply("Chưa có dữ liệu soi cầu");
-   return;
-  }
-
-  msg.reply(`📈 Cầu gần đây:\n${history.join(" - ")}`);
+  message.channel.send({
+   content: `<@&${ROLE_ID}>`,
+   embeds: [embed]
+  });
  }
 
- // ===== TAI XIU =====
+ // timer spawn
+ if (cmd === "timer") {
 
- if(msg.content.startsWith(".taixiu")){
-
-  const args = msg.content.split(" ");
-
-  if(args.length < 3){
-   msg.reply("Ví dụ: .taixiu tai 100");
-   return;
+  if (!lastSpawn) {
+   return message.reply("❌ Chưa có bóng spawn.");
   }
 
-  const bet = args[1];
-  const amount = parseInt(args[2]);
+  let time = Math.floor((Date.now() - lastSpawn) / 1000);
 
-  if(getMoney(id) < amount){
-   msg.reply("Không đủ tiền");
-   return;
-  }
+  const embed = new EmbedBuilder()
+   .setTitle("⏱ Thời gian từ lần spawn")
+   .setDescription(`${time} giây`)
+   .setColor("Blue");
 
-  const dice =
-   Math.floor(Math.random()*6+1)+
-   Math.floor(Math.random()*6+1)+
-   Math.floor(Math.random()*6+1);
-
-  const result = dice >=11 ? "tai":"xiu";
-
-  history.push(result);
-  if(history.length > 10) history.shift();
-
-  if(bet === result){
-   const win = amount*1.9;
-   money[id] += win;
-   msg.reply(`🎲 ${dice} → ${result}\nBạn thắng **${win} Mcoin**`);
-  }else{
-   money[id] -= amount;
-   msg.reply(`🎲 ${dice} → ${result}\nBạn thua **${amount} Mcoin**`);
-  }
-
+  message.channel.send({ embeds: [embed] });
  }
 
- // ===== BAU CUA =====
+ // help
+ if (cmd === "help") {
 
- if(msg.content.startsWith(".baucua")){
+  const embed = new EmbedBuilder()
+   .setTitle("📜 Lệnh bot")
+   .setDescription(`
+.ping
+.spawn
+.rare
+.timer
+.help
+`)
+   .setColor("Purple");
 
-  const args = msg.content.split(" ");
-
-  if(args.length < 3){
-   msg.reply("Ví dụ: .baucua cua 100");
-   return;
-  }
-
-  const choice = args[1];
-  const amount = parseInt(args[2]);
-
-  if(getMoney(id) < amount){
-   msg.reply("Không đủ tiền");
-   return;
-  }
-
-  const roll = [
-   bcItems[Math.floor(Math.random()*6)],
-   bcItems[Math.floor(Math.random()*6)],
-   bcItems[Math.floor(Math.random()*6)]
-  ];
-
-  const win = roll.filter(x=>x===choice).length;
-
-  if(win === 0){
-   money[id] -= amount;
-   msg.reply(`Ra ${roll.join(" | ")} → Thua`);
-  }else{
-   const prize = amount * win;
-   money[id] += prize;
-   msg.reply(`Ra ${roll.join(" | ")} → Trúng ${win}\n+${prize} Mcoin`);
-  }
-
+  message.channel.send({ embeds: [embed] });
  }
 
 });
-if(msg.content.startsWith(".code")){
 
- const args = msg.content.split(" ");
- const code = args[1];
-
- if(!code){
-  msg.reply("❌ Ví dụ: `.code THANTAIDEN`");
-  return;
- }
-
- if(!codes[code]){
-  msg.reply("❌ Code không tồn tại");
-  return;
- }
-
- if(!usedCodes[code]) usedCodes[code] = [];
-
- if(usedCodes[code].includes(msg.author.id)){
-  msg.reply("❌ Bạn đã dùng code này rồi");
-  return;
- }
-
- const reward = codes[code];
-
- money[msg.author.id] = getMoney(msg.author.id) + reward;
-
- usedCodes[code].push(msg.author.id);
-
- const embed = new EmbedBuilder()
- .setTitle("🎁 Nhận Code Thành Công")
- .setDescription(`
-🏷 Code: **${code}**
-
-💰 Phần thưởng: **${reward.toLocaleString()} Mcoin**
-
-👤 Người nhận: <@${msg.author.id}>
- `)
- .setColor("Gold")
- .setTimestamp();
-
- msg.reply({embeds:[embed]});
-}
-client.login(process.env.TOKEN);
+client.login(TOKEN);
